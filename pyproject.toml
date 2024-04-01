@@ -1,0 +1,54 @@
+[project]
+name = "spdx3query"
+description = "Query SPDX 3 data files"
+dynamic = ["version"]
+dependencies = []
+required-python = ">= 3.8"
+authors = [
+    {name = "Joshua Watt", email = "JPEWhacker@gmail.com"},
+]
+readme = "README.md"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Build Tools",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+[project.optional-dependencies]
+dev = [
+    "flake8 >= 7.0.0",
+    "pytest >= 7.4",
+    "pytest-cov >= 4.1",
+    "pytest-server-fixtures >= 1.7",
+]
+
+[project.urls]
+Homepage = "https://github.com/JPEWdev/spdx3query"
+Repository = "https://github.com/JPEWdev/spdx3query.git"
+Issues = "https://github.com/JPEWdev/spdx3query/issues"
+
+[project.scripts]
+spdx3query = "spdx3query:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "src/spdx3query/version.py"
+
+[tool.pytest.ini_options]
+addopts = [
+    "--import-mode=importlib",
+    "--cov=spdx3query",
+]
+
+[tool.coverage.run]
+relative_files = true
