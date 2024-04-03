@@ -110,6 +110,9 @@ def handle_interactive(args, doc):
     def handle_quit(args, doc):
         raise ShellExit()
 
+    def handle_clear(args, doc):
+        print("\x1b[2J\x1b[H", end="")
+
     parser = InteractiveParser(add_help=False, epilog=EPILOG)
     command_subparser = parser.add_subparsers(
         title="command",
@@ -123,6 +126,11 @@ def handle_interactive(args, doc):
 
     quit_parser = command_subparser.add_parser("quit", help="Quit", add_help=False)
     quit_parser.set_defaults(func=handle_quit)
+
+    clear_parser = command_subparser.add_parser(
+        "clear", help="Clear screen", add_help=False
+    )
+    clear_parser.set_defaults(func=handle_clear)
 
     add_commands(command_subparser)
 
