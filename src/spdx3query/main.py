@@ -12,7 +12,7 @@ from pathlib import Path
 
 from .version import VERSION
 from .cmd import COMMANDS, CommandExit
-from .name import get_object_handle
+from .name import get_handle
 from . import spdx3
 
 EPILOG = """
@@ -42,21 +42,45 @@ def add_commands(subparser):
         p.set_defaults(func=c.handle)
 
 
-class Document(spdx3.SHACLDocument):
+class Document(spdx3.SHACLObjectSet):
+    def __init__(self, handle_terms):
+        super().__init__()
+        self.handle_terms = handle_terms
+
     def create_index(self):
         self.obj_by_handle = {}
+        self.type_handle_map = {}
         super().create_index()
 
     def add_index(self, obj):
         super().add_index(obj)
-        handle = get_object_handle(obj)
+        if obj._id and not spdx3.is_blank_node(obj._id):
+            handle_str = obj._id
+            prefix = None
+        else:
+            handle_str = obj.TYPE + " " + hex(len(self.obj_by_handle))
+            prefix = "LOCAL"
+
+        handle = get_handle(handle_str, self.handle_terms, prefix=prefix)
         obj._metadata["handle"] = handle
         if handle in self.obj_by_handle and self.obj_by_handle[handle] is not obj:
-            print(f"Warning: handle '{handle}' is not unique")
+            print(
+                f"Warning: handle '{handle}' ({handle_str}) is not unique. Conflicts with {self.obj_by_handle[handle]._id}"
+            )
         self.obj_by_handle[handle] = obj
+
+        if obj.TYPE not in spdx3.SHACLObject.CLASSES:
+            type_handle = get_handle(obj.TYPE)
+            obj._metadata["type_handle"] = type_handle
+            self.type_handle_map[type_handle] = obj.TYPE
 
     def count(self):
         return len(self.obj_by_handle)
+
+    def foreach_type(self, typ, **kwargs):
+        if typ in self.type_handle_map:
+            typ = self.type_handle_map[typ]
+        return super().foreach_type(typ, **kwargs)
 
     def find_by_handle(self, handle):
         if handle in self.obj_by_handle:
@@ -64,7 +88,7 @@ class Document(spdx3.SHACLDocument):
         return None
 
     def foreach_relationship(self, from_, typ, to):
-        for rel in self.foreach_type(spdx3.Relationship, subclass=True):
+        for rel in self.foreach_type(spdx3.Relationship, match_subclass=True):
             if typ is not None and rel.relationshipType != typ:
                 continue
 
@@ -86,7 +110,7 @@ class Document(spdx3.SHACLDocument):
             yield rel.from_
 
     def foreach_external_id(self, type_iri, check_id, obj_type=spdx3.Element):
-        for o in self.foreach_type(obj_type, subclass=True):
+        for o in self.foreach_type(obj_type, match_subclass=True):
             for v in o.externalIdentifier:
                 if isinstance(v, spdx3.ExternalIdentifier):
                     if v.externalIdentifierType != type_iri:
@@ -173,6 +197,12 @@ def main(args=None):
         action="append",
         default=[],
     )
+    parser.add_argument(
+        "--handle-terms",
+        help="Number of handle terms. Default is %(default)s. Larger datasets may require more terms to keep unique handles",
+        type=int,
+        default=3,
+    )
 
     command_subparser = parser.add_subparsers(
         title="command",
@@ -192,7 +222,7 @@ def main(args=None):
     args = parser.parse_args(args)
 
     d = spdx3.JSONLDDeserializer()
-    doc = Document()
+    doc = Document(args.handle_terms)
     start = time.time()
     for i in args.input:
         with i.open("rb") as f:

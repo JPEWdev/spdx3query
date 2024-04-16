@@ -10,20 +10,16 @@ THIS_DIR = Path(__file__).parent
 WORDLIST = (THIS_DIR / "wordlist.txt").open("r").read().split()
 
 
-def get_object_handle(o, n=3):
-    prepend = []
-    if o._id:
-        _id = o._id
-    else:
-        _id = hex(id(o))
-        prepend.append("TEMP")
-
-    h = int.from_bytes(hashlib.md5(_id.encode("utf-8")).digest(), "big")
+def get_handle(s, n=3, *, prefix=None):
+    h = int.from_bytes(hashlib.md5(s.encode("utf-8")).digest(), "big")
 
     words = []
     for i in range(n):
         words.append(WORDLIST[h % len(WORDLIST)])
         h = h // len(WORDLIST)
 
+    if prefix:
+        words.append(prefix)
+
     words.reverse()
-    return "-".join(prepend + words)
+    return "-".join(words)

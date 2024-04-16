@@ -11,10 +11,10 @@ from .show import show_object
 
 
 def check_enum(val, enum, desc):
-    if val in (v for _, v in enum.valid_values):
+    if val in enum.NAMED_INDIVIDUALS.values():
         return val
 
-    if val not in (v for v, _ in enum.valid_values):
+    if val not in enum.NAMED_INDIVIDUALS.keys():
         print(f"Unknown {desc} '{val}'. Choose from:")
         print("  " + "\n  ".join(sorted(v for v, _ in enum.valid_values)))
         raise CommandExit(1)
@@ -31,7 +31,7 @@ def get_obj_by_handle(doc, handle, typ=None):
     if typ is not None:
         if not isinstance(o, typ):
             print(
-                f"'{handle}' must be of type {typ.COMPACT_TYPE}, but is actually {o.COMPACT_TYPE}"
+                f"'{handle}' must be of type {typ.COMPACT_TYPE or typ.TYPE}, but is actually {o.COMPACT_TYPE or o.TYPE}"
             )
             raise CommandExit(1)
 
@@ -156,10 +156,10 @@ class Find(Command):
         final = set(doc.foreach())
 
         if args.type:
-            final &= set(doc.foreach_type(args.type))
+            final &= set(doc.foreach_type(args.type, match_subclass=False))
 
         if args.subclass:
-            final &= set(doc.foreach_type(args.subclass, subclass=True))
+            final &= set(doc.foreach_type(args.subclass, match_subclass=True))
 
         if args.verified_using:
             objs = set()
@@ -167,7 +167,7 @@ class Find(Command):
             algo, val = args.verified_using
             algo_iri = check_enum(algo, spdx3.HashAlgoritm, "hash algorithm")
 
-            for o in doc.foreach_type(spdx3.Element, subclass=True):
+            for o in doc.foreach_type(spdx3.Element, match_subclass=True):
                 for v in o.verifiedUsing:
                     if isinstance(v, spdx3.Hash):
                         if v.algorithm == algo_iri and v.hashValue == val:
@@ -177,7 +177,7 @@ class Find(Command):
 
         for name in args.name:
             objs = set()
-            for o in doc.foreach_type(spdx3.Element, subclass=True):
+            for o in doc.foreach_type(spdx3.Element, match_subclass=True):
                 if o.name == name:
                     objs.add(o)
 
@@ -185,7 +185,7 @@ class Find(Command):
 
         for pattern in args.name_pattern:
             objs = set()
-            for o in doc.foreach_type(spdx3.Element, subclass=True):
+            for o in doc.foreach_type(spdx3.Element, match_subclass=True):
                 if o.name is None:
                     continue
 
@@ -255,6 +255,6 @@ class Find(Command):
             print(f"Found {len(final)} object(s)")
         else:
             print(f"Found {len(final)} object(s):")
-            for o in final:
+            for o in sorted(list(final)):
                 show_object(o, args.show)
         return 0

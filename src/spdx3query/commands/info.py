@@ -14,6 +14,11 @@ class Info(Command):
             action="store_true",
             help="Show missing SPDX IDs",
         )
+        parser.add_argument(
+            "--show-types",
+            action="store_true",
+            help="Show types found in Document",
+        )
 
     @classmethod
     def handle(self, args, doc):
@@ -24,4 +29,12 @@ class Info(Command):
         if args.show_missing:
             for m in missing:
                 print(f"  {m}")
+        print(f"Type count:       {len(doc.obj_by_type)}")
+        if args.show_types:
+            for t in sorted(list(doc.obj_by_type.keys())):
+                print(f"  {t}", end="")
+                for k, v in doc.type_handle_map.items():
+                    if t == v:
+                        print(f" ({k})", end="")
+                print()
         return 0
