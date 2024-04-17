@@ -62,7 +62,6 @@ omit = [
 
 [[tool.hatch.build.hooks.build-scripts.scripts]]
 out_dir = "src/spdx3query"
-#work_dir = "generated"
 commands = [
     "shacl2code generate -i https://spdx.org/rdf/3.0.0/spdx-model.ttl -i https://spdx.org/rdf/3.0.0/spdx-json-serialize-annotations.ttl -x https://spdx.org/rdf/3.0.0/spdx-context.jsonld python -o spdx3.py"
 ]
