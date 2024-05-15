@@ -165,7 +165,7 @@ class Find(Command):
             objs = set()
 
             algo, val = args.verified_using
-            algo_iri = check_enum(algo, spdx3.HashAlgoritm, "hash algorithm")
+            algo_iri = check_enum(algo, spdx3.HashAlgorithm, "hash algorithm")
 
             for o in doc.foreach_type(spdx3.Element, match_subclass=True):
                 for v in o.verifiedUsing:
