@@ -48,7 +48,7 @@ class Build(Command):
         def search(obj, target, visited=None):
             def search_input(obj):
                 for in_rel in doc.foreach_relationship(
-                    None, spdx3.RelationshipType.hasInputs, obj
+                    None, spdx3.RelationshipType.hasInput, obj
                 ):
                     if target is in_rel.from_:
                         yield [target]
@@ -80,7 +80,7 @@ class Build(Command):
                         yield [obj] + chain
 
                 for out_rel in doc.foreach_relationship(
-                    obj, spdx3.RelationshipType.hasOutputs, None
+                    obj, spdx3.RelationshipType.hasOutput, None
                 ):
                     for out in out_rel.to:
                         if out is target:

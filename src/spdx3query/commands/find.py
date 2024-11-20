@@ -14,12 +14,12 @@ def check_enum(val, enum, desc):
     if val in enum.NAMED_INDIVIDUALS.values():
         return val
 
-    if val not in enum.NAMED_INDIVIDUALS.keys():
+    if val not in enum.NAMED_INDIVIDUALS:
         print(f"Unknown {desc} '{val}'. Choose from:")
-        print("  " + "\n  ".join(sorted(v for v, _ in enum.valid_values)))
+        print("  " + "\n  ".join(sorted(enum.NAMED_INDIVIDUALS.keys())))
         raise CommandExit(1)
 
-    return getattr(enum, val)
+    return enum.NAMED_INDIVIDUALS[val]
 
 
 def get_obj_by_handle(doc, handle, typ=None):

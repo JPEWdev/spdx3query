@@ -26,7 +26,7 @@ dev = [
     "pytest >= 7.4",
     "pytest-cov >= 4.1",
     "pytest-server-fixtures >= 1.7",
-    "shacl2code == 0.0.10",
+    "shacl2code == 0.0.15",
 ]
 
 [project.urls]
@@ -41,7 +41,7 @@ spdx3query = "spdx3query:main"
 requires = [
     "hatchling",
     "hatch-build-scripts",
-    "shacl2code == 0.0.10",
+    "shacl2code == 0.0.15",
 ]
 build-backend = "hatchling.build"
 
@@ -63,7 +63,7 @@ omit = [
 [[tool.hatch.build.hooks.build-scripts.scripts]]
 out_dir = "src/spdx3query"
 commands = [
-    "shacl2code generate -i https://spdx.org/rdf/3.0.0/spdx-model.ttl -i https://spdx.org/rdf/3.0.0/spdx-json-serialize-annotations.ttl -x https://spdx.org/rdf/3.0.0/spdx-context.jsonld python -o spdx3.py"
+    "shacl2code generate -i https://spdx.org/rdf/3.0.1/spdx-model.ttl -i https://spdx.org/rdf/3.0.1/spdx-json-serialize-annotations.ttl -x https://spdx.org/rdf/3.0.1/spdx-context.jsonld python -o spdx3.py"
 ]
 artifacts = [
     "/spdx3.py"
