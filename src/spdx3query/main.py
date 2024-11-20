@@ -47,6 +47,12 @@ class Document(spdx3.SHACLObjectSet):
         super().__init__()
         self.handle_terms = handle_terms
 
+    def copy(self):
+        doc = self.__class__(self.handle_terms)
+        doc.objects = self.objects.copy()
+        doc.create_index()
+        return doc
+
     def create_index(self):
         self.obj_by_handle = {}
         self.type_handle_map = {}
