@@ -8,6 +8,7 @@ import argparse
 import shlex
 import time
 import traceback
+import re
 from pathlib import Path
 
 from .version import VERSION
@@ -46,6 +47,26 @@ class Document(spdx3.SHACLObjectSet):
     def __init__(self, handle_terms):
         super().__init__()
         self.handle_terms = handle_terms
+        self.focus_object = None
+
+    def set_focus(self, o):
+        if isinstance(o, spdx3.SHACLObject):
+            self.focus_object = o
+            return True
+
+        if o in self.obj_by_handle:
+            self.focus_object = self.obj_by_handle[o]
+            return True
+
+        return False
+
+    def get_focus_handle(self):
+        if self.focus_object is None:
+            return None
+        return self.focus_object._metadata["handle"]
+
+    def clear_focus(self):
+        self.focus_object = None
 
     def copy(self):
         doc = self.__class__(self.handle_terms)
@@ -89,9 +110,47 @@ class Document(spdx3.SHACLObjectSet):
         return super().foreach_type(typ, **kwargs)
 
     def find_by_handle(self, handle):
+        if handle == ".":
+            return self.focus_object
+
         if handle in self.obj_by_handle:
             return self.obj_by_handle[handle]
         return None
+
+    def find_by_path(self, handle):
+        split_path = []
+        if handle != "." and "." in handle:
+            p = handle.split(".")
+            if not p[0]:
+                handle = "."
+                split_path = p[1:]
+            else:
+                handle = p[0]
+                split_path = p[1:]
+
+        o = self.find_by_handle(handle)
+        if o is None:
+            o = self.find_by_id(handle)
+        if o is None:
+            return o
+
+        for p in split_path:
+            m = re.fullmatch(r"(?P<prop>\w+)\[(?P<idx>\d+)\]", p)
+            if m is not None:
+                o = getattr(o, m.group("prop"))
+                o = o[int(m.group("idx"))]
+            else:
+                o = getattr(o, p)
+                if isinstance(o, spdx3.ListProxy) and len(o) == 1:
+                    o = o[0]
+        return o
+
+    def rename_handle(self, from_handle, to_handle):
+        if from_handle in self.obj_by_handle:
+            o = self.obj_by_handle[from_handle]
+            del self.obj_by_handle[from_handle]
+            o._metadata["handle"] = to_handle
+            self.obj_by_handle[to_handle] = o
 
     def foreach_relationship(self, from_, typ, to):
         for rel in self.foreach_type(spdx3.Relationship, match_subclass=True):
@@ -132,6 +191,8 @@ def handle_interactive(args, doc):
     except ImportError:
         pass
 
+    path_history = []
+
     def handle_help(args, doc):
         nonlocal parser
         parser.print_help()
@@ -142,6 +203,67 @@ def handle_interactive(args, doc):
 
     def handle_clear(args, doc):
         print("\x1b[2J\x1b[H", end="")
+
+    def handle_cd(args, doc):
+        if args.handle == "/":
+            for o in doc.foreach_type(spdx3.SpdxDocument):
+                doc.set_focus(o)
+                break
+            return 0
+
+        if args.handle == "..":
+            if path_history:
+                handle = path_history.pop()
+                if not doc.set_focus(handle):
+                    print(f"No object with handle '{handle}' found")
+                    return 1
+            return 0
+
+        if args.handle == "?":
+            for handle in path_history:
+                o = doc.find_by_handle(handle)
+                if o:
+                    print(f"{handle} - {o.COMPACT_TYPE or o.TYPE}")
+                else:
+                    print(f"{handle} - NOT FOUND")
+            return 0
+
+        try:
+            o = doc.find_by_path(args.handle)
+        except (AttributeError, IndexError) as e:
+            print(e)
+            return 1
+
+        if o is None:
+            print(f"No object with handle '{args.handle}' found")
+            return 1
+
+        if not isinstance(o, spdx3.SHACLObject):
+            print(f"'{args.handle}' is not an object")
+            return 1
+
+        old_focus = doc.get_focus_handle()
+        if not doc.set_focus(o):
+            return 1
+
+        if old_focus:
+            path_history.append(old_focus)
+
+        return 0
+
+    def handle_rehandle(args, doc):
+        from_handle = getattr(args, "from")
+
+        if not doc.find_by_handle(from_handle):
+            print(f"No object with handle '{from_handle}' found")
+            return 1
+
+        if doc.find_by_handle(args.to):
+            print(f"Object with handle '{args.to}' already exists. Refusing to rename")
+            return 1
+
+        doc.rename_handle(from_handle, args.to)
+        return 0
 
     parser = InteractiveParser(add_help=False, epilog=EPILOG)
     command_subparser = parser.add_subparsers(
@@ -154,6 +276,22 @@ def handle_interactive(args, doc):
     help_parser = command_subparser.add_parser("help", help="Show help", add_help=False)
     help_parser.set_defaults(func=handle_help)
 
+    cd_parser = command_subparser.add_parser("cd", help="Change focus node")
+    cd_parser.add_argument(
+        "handle",
+        metavar="HANDLE[.PATH]",
+        help="Handle or path to set as new focus. "
+        "Use '?' to view object history, '..' to switch back to the previous object in history, or '/' to change to the root SpdxDocument",
+    )
+    cd_parser.set_defaults(func=handle_cd)
+
+    rehandle_parser = command_subparser.add_parser(
+        "rehandle", help="Change object handle"
+    )
+    rehandle_parser.add_argument("from", help="Handle to rename")
+    rehandle_parser.add_argument("to", help="New handle")
+    rehandle_parser.set_defaults(func=handle_rehandle)
+
     quit_parser = command_subparser.add_parser("quit", help="Quit", add_help=False)
     quit_parser.set_defaults(func=handle_quit)
 
@@ -164,9 +302,18 @@ def handle_interactive(args, doc):
 
     add_commands(command_subparser)
 
+    for o in doc.foreach_type(spdx3.SpdxDocument):
+        doc.set_focus(o)
+        break
+
     while True:
         try:
-            cmd = input("> ")
+            focus = doc.get_focus_handle()
+            if focus is None:
+                cmd = input("> ")
+            else:
+                cmd = input(f"({focus}) > ")
+
             c = shlex.split(cmd)
             if not c:
                 continue
