@@ -77,6 +77,7 @@ class Document(spdx3.SHACLObjectSet):
     def create_index(self):
         self.obj_by_handle = {}
         self.type_handle_map = {}
+        self.root_doc = None
         super().create_index()
 
     def add_index(self, obj):
@@ -100,6 +101,12 @@ class Document(spdx3.SHACLObjectSet):
             type_handle = get_handle(obj.TYPE)
             obj._metadata["type_handle"] = type_handle
             self.type_handle_map[type_handle] = obj.TYPE
+
+        if isinstance(obj, spdx3.SpdxDocument):
+            if self.root_doc is not None:
+                print("Warning: Multiple SpdxDocuments found!")
+            else:
+                self.root_doc = obj
 
     def count(self):
         return len(self.obj_by_handle)
@@ -184,6 +191,16 @@ class Document(spdx3.SHACLObjectSet):
                     if check_id(v.identifier):
                         yield o
 
+    def link(self):
+        missing = super().link()
+        if self.root_doc is None:
+            return missing
+
+        for i in self.root_doc.import_:
+            missing.discard(i.externalSpdxId)
+
+        return missing
+
 
 def handle_interactive(args, doc):
     try:
@@ -206,10 +223,11 @@ def handle_interactive(args, doc):
 
     def handle_cd(args, doc):
         if args.handle == "/":
-            for o in doc.foreach_type(spdx3.SpdxDocument):
-                doc.set_focus(o)
-                break
-            return 0
+            if doc.root_doc is not None:
+                doc.set_focus(doc.root_doc)
+                return 0
+            print("Document has no SpdxDocument root")
+            return 1
 
         if args.handle == "..":
             if path_history:
@@ -302,9 +320,8 @@ def handle_interactive(args, doc):
 
     add_commands(command_subparser)
 
-    for o in doc.foreach_type(spdx3.SpdxDocument):
-        doc.set_focus(o)
-        break
+    if doc.root_doc is not None:
+        doc.set_focus(doc.root_doc)
 
     while True:
         try:
